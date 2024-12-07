@@ -16,7 +16,7 @@ load_dotenv()
 app = Flask(__name__)
 allowed_origins = [
     "https://datathon-2024-bice.vercel.app",
-    "https://nextjs-frontend-5cjm.onrender.com/",  
+    "https://nextjs-frontend-5cjm.onrender.com",  
     "http://localhost:3000", 
     "http://127.0.0.1:3000"
 ]
