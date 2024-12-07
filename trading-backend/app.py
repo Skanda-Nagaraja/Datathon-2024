@@ -7,10 +7,21 @@ import json
 from dynamic_strategy import DynamicStrategy
 from data_validation import fetch_data, validate_and_clean_data
 from indicators import calculate_indicators
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file (optional, since Render manages them)
+load_dotenv()
 
 app = Flask(__name__)
-#CORS(app)  # Enable CORS for all routes
-CORS(app, origins=["https://datathon-2024-bice.vercel.app"])
+allowed_origins = [
+    "https://datathon-2024-bice.vercel.app",
+    "https://your-nextjs-frontend.onrender.com",  # Replace with your actual frontend URL after deployment
+    "http://localhost:3000",  # Add your local frontend URL if testing locally
+    "http://127.0.0.1:3000"
+]
+
+CORS(app, origins=allowed_origins)
 
 @app.route('/api/get-price-data', methods=['GET'])
 def get_price_data():
@@ -30,26 +41,25 @@ def get_price_data():
     try:
         df = fetch_data(ticker, start_date, end_date)
         df.reset_index(inplace=True)
-        df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-        # if 'Date' in df.columns:
-        #     df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-        #     print("Formatted Date column:", df['Date'].head())
-        # else:
-        #     print("Warning: 'Date' column not found in DataFrame")
-
+        # Flatten MultiIndex if necessary
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = ['_'.join(filter(None, col)).lower() for col in df.columns]
             print("Flattened columns:", df.columns)
 
+        # Updated column mapping
         column_mapping = {
-            f"date": "date",
-            f"open_{ticker.lower()}": "open",
-            f"high_{ticker.lower()}": "high",
-            f"low_{ticker.lower()}": "low",
-            f"close_{ticker.lower()}": "close"
+            'Date': 'date',
+            'Open': 'open',
+            'High': 'high',
+            'Low': 'low',
+            'Close': 'close',
+            'Adj Close': 'adj_close',  # Optional
+            'Volume': 'volume'         # Optional
         }
         df.rename(columns=column_mapping, inplace=True)
+        print("Columns after renaming:", df.columns)
 
         # Convert to dictionary and check for tuple keys
         data = df[['date', 'open', 'high', 'low', 'close']].to_dict(orient='records')
@@ -186,7 +196,9 @@ def run_backtest():
     }
 
     return jsonify(results)
-    return jsonify({"status": "Backtest Success"})
+    # The following line will never be executed due to the return above
+    # return jsonify({"status": "Backtest Success"})
+
 
 @app.route('/api/get-indicator-data', methods=['GET'])
 def get_indicator_data():
@@ -261,4 +273,6 @@ def get_indicator_data():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Remove debug=True for production
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
