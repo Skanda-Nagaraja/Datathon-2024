@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-// import globals.css';
 
 import {
     Select,
@@ -25,6 +24,7 @@ import {
     Time,
 } from 'lightweight-charts'
 
+// Type Definitions
 type Condition = {
     indicator: string
     period: number
@@ -68,6 +68,7 @@ type TradeHistoryEntry = {
 }
 
 export default function BacktestingApp() {
+    // State Definitions
     const [backtestParams, setBacktestParams] = useState<BacktestParams>({
         ticker: "AAPL",
         start_date: "2019-01-01",
@@ -107,9 +108,11 @@ export default function BacktestingApp() {
     const [fetchError, setFetchError] = useState<string | null>(null)
     const { theme, setTheme } = useTheme()
 
+    // Retrieve Backend API URL from Environment Variables
+    const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || ''
+
     useEffect(() => {
         let chart: IChartApi | null = null
-
 
         const fetchDataAndRenderChart = async () => {
             if (chartContainerRef.current && backtestParams.ticker && backtestParams.start_date && backtestParams.end_date) {
@@ -119,7 +122,7 @@ export default function BacktestingApp() {
                         width: chartContainerRef.current.clientWidth,
                         height: 600,
                         layout: {
-                            background: { color: theme === 'dark' ? 'bg-black' : '#FFFFFF' },
+                            background: { color: theme === 'dark' ? '#000000' : '#FFFFFF' },
                             textColor: theme === 'dark' ? '#E5E7EB' : '#1F2937',
                         },
                         grid: {
@@ -139,23 +142,24 @@ export default function BacktestingApp() {
                         wickDownColor: '#EF4444',
                     })
 
-                    const url = `http://127.0.0.1:5000/api/get-price-data?ticker=${encodeURIComponent(backtestParams.ticker)}&start_date=${encodeURIComponent(backtestParams.start_date)}&end_date=${encodeURIComponent(backtestParams.end_date)}`
-                    console.log('Fetching price data from:', url)
+                    // Fetch Price Data
+                    const priceDataUrl = `${BACKEND_API_URL}/get-price-data?ticker=${encodeURIComponent(backtestParams.ticker)}&start_date=${encodeURIComponent(backtestParams.start_date)}&end_date=${encodeURIComponent(backtestParams.end_date)}`
+                    console.log('Fetching price data from:', priceDataUrl)
 
-                    const response = await fetch(url)
-                    if (!response.ok) {
-                        const errorData = await response.json()
+                    const priceResponse = await fetch(priceDataUrl)
+                    if (!priceResponse.ok) {
+                        const errorData = await priceResponse.json()
                         throw new Error(errorData.error || 'Error fetching price data')
                     }
 
-                    const data: PriceDataItem[] = await response.json()
-                    console.log('Received price data:', data)
+                    const priceData: PriceDataItem[] = await priceResponse.json()
+                    console.log('Received price data:', priceData)
 
-                    if (data.length === 0) {
+                    if (priceData.length === 0) {
                         throw new Error('No price data available for the selected ticker and date range.')
                     }
 
-                    const priceData = data.map((item: PriceDataItem) => ({
+                    const formattedPriceData = priceData.map((item: PriceDataItem) => ({
                         time: item.date as Time,
                         open: item.open,
                         high: item.high,
@@ -163,15 +167,14 @@ export default function BacktestingApp() {
                         close: item.close,
                     }))
 
-                    candleSeries.setData(priceData)
+                    candleSeries.setData(formattedPriceData)
 
-                    const indicators = backtestParams.params.conditions
-                        .map(condition => ({ indicator: condition.indicator, period: condition.period }))
-                        .filter((value, index, self) =>
-                            index === self.findIndex((t) => (
-                                t.indicator === value.indicator && t.period === value.period
-                            ))
-                        )
+                    // Fetch and Render Indicators
+                    const uniqueIndicators = Array.from(new Set(backtestParams.params.conditions.map(cond => `${cond.indicator}_${cond.period}`)))
+                    const indicators = uniqueIndicators.map(ind => {
+                        const [indicator, period] = ind.split('_')
+                        return { indicator, period: parseInt(period) }
+                    })
 
                     const indicatorColors: { [key: string]: string } = {
                         "SMA": "blue",
@@ -185,8 +188,11 @@ export default function BacktestingApp() {
                         "Parabolic SAR": "yellow",
                         "MACD": "red",
                     }
+
                     for (const { indicator, period } of indicators) {
-                        const indicatorUrl = `http://127.0.0.1:5000/api/get-indicator-data?ticker=${encodeURIComponent(backtestParams.ticker)}&indicator=${encodeURIComponent(indicator)}&period=${period}&start_date=${encodeURIComponent(backtestParams.start_date)}&end_date=${encodeURIComponent(backtestParams.end_date)}`
+                        const indicatorUrl = `${BACKEND_API_URL}/get-indicator-data?ticker=${encodeURIComponent(backtestParams.ticker)}&indicator=${encodeURIComponent(indicator)}&period=${period}&start_date=${encodeURIComponent(backtestParams.start_date)}&end_date=${encodeURIComponent(backtestParams.end_date)}`
+                        console.log(`Fetching ${indicator} data from:`, indicatorUrl)
+
                         const indicatorResponse = await fetch(indicatorUrl)
                         if (!indicatorResponse.ok) {
                             const errorData = await indicatorResponse.json()
@@ -203,7 +209,7 @@ export default function BacktestingApp() {
                             lineWidth: 1,
                         })
 
-                        const lineData = indicatorData.map((item: { Date?: string, date?: string, value: number }) => {
+                        const formattedIndicatorData = indicatorData.map((item: { Date?: string, date?: string, value: number }) => {
                             const dateString = item.Date || item.date
                             if (!dateString) {
                                 console.error("Error: Missing date in indicator data", item)
@@ -217,28 +223,29 @@ export default function BacktestingApp() {
                             }
 
                             return {
-                                time: dateObj.getTime() / 1000 as Time,
+                                time: Math.floor(dateObj.getTime() / 1000) as Time,
                                 value: item.value,
                             }
-                        }).filter(Boolean)
+                        }).filter(Boolean) as { time: Time, value: number }[]
 
-                        indicatorSeries.setData(lineData)
+                        indicatorSeries.setData(formattedIndicatorData)
                     }
 
+                    // Render Trade History Markers
                     if (backtestResults.trade_history && backtestResults.trade_history.length > 0) {
                         const markers: SeriesMarker<Time>[] = backtestResults.trade_history.flatMap((trade: TradeHistoryEntry) => {
-                            const entryTime = new Date(trade.EntryTime).toISOString().split('T')[0]
-                            const exitTime = trade.ExitTime ? new Date(trade.ExitTime).toISOString().split('T')[0] : null
+                            const entryDate = new Date(trade.EntryTime).toISOString().split('T')[0]
+                            const exitDate = trade.ExitTime ? new Date(trade.ExitTime).toISOString().split('T')[0] : null
 
-                            console.log("Formatted ENTRY TIME:", entryTime)
-                            console.log("Formatted EXIT TIME:", exitTime)
+                            console.log("Formatted ENTRY TIME:", entryDate)
+                            console.log("Formatted EXIT TIME:", exitDate)
 
                             const markersList: SeriesMarker<Time>[] = [
-                                { time: entryTime as Time, position: 'belowBar', color: 'green', shape: 'arrowUp', text: `Buy @ ${trade.EntryPrice.toFixed(2)}` }
+                                { time: entryDate as Time, position: 'belowBar', color: 'green', shape: 'arrowUp', text: `Buy @ ${trade.EntryPrice.toFixed(2)}` }
                             ]
 
-                            if (exitTime) {
-                                markersList.push({ time: exitTime as Time, position: 'aboveBar', color: 'red', shape: 'arrowDown', text: `Sell @ ${trade.ExitPrice.toFixed(2)}` })
+                            if (exitDate) {
+                                markersList.push({ time: exitDate as Time, position: 'aboveBar', color: 'red', shape: 'arrowDown', text: `Sell @ ${trade.ExitPrice.toFixed(2)}` })
                             }
 
                             return markersList
@@ -247,6 +254,7 @@ export default function BacktestingApp() {
                         candleSeries.setMarkers(markers)
                     }
 
+                    // Fit Chart to Content
                     chart.timeScale().fitContent()
                 } catch (error) {
                     console.error('Error fetching or rendering price data:', error)
@@ -259,13 +267,15 @@ export default function BacktestingApp() {
 
         fetchDataAndRenderChart()
 
+        // Cleanup Chart on Component Unmount
         return () => {
             if (chart) {
                 chart.remove()
             }
         }
-    }, [backtestResults, backtestParams, theme])
+    }, [backtestResults, backtestParams, theme, BACKEND_API_URL])
 
+    // Function to Update Conditions
     const updateCondition = (
         index: number,
         field: keyof Condition,
@@ -284,6 +294,7 @@ export default function BacktestingApp() {
         }))
     }
 
+    // Function to Add a New Condition
     const addCondition = (isExit: boolean) => {
         const paramType = isExit ? 'exits' : 'conditions'
         setBacktestParams((prev) => ({
@@ -298,6 +309,7 @@ export default function BacktestingApp() {
         }))
     }
 
+    // Function to Remove a Condition
     const removeCondition = (index: number, isExit: boolean) => {
         const paramType = isExit ? 'exits' : 'conditions'
         setBacktestParams((prev) => ({
@@ -309,14 +321,17 @@ export default function BacktestingApp() {
         }))
     }
 
+    // Loading and Error States
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // Function to Handle Backtest Execution
     const handleBacktest = async () => {
         console.log('Backtest parameters:', backtestParams)
         setLoading(true)
         setError(null)
 
+        // Input Validation
         if (!backtestParams.ticker || !backtestParams.start_date || !backtestParams.end_date) {
             setError('Please enter the ticker, start date, and end date.')
             setLoading(false)
@@ -333,10 +348,10 @@ export default function BacktestingApp() {
         }
 
         try {
-            const url = 'http://127.0.0.1:5000/api/run-backtest'
-            console.log('Sending backtest request to:', url)
+            const backtestUrl = `${BACKEND_API_URL}/run-backtest`
+            console.log('Sending backtest request to:', backtestUrl)
 
-            const response = await fetch(url, {
+            const response = await fetch(backtestUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -361,6 +376,7 @@ export default function BacktestingApp() {
         }
     }
 
+    // Function to Render Condition Inputs
     const renderConditionInputs = (
         condition: Condition,
         index: number,
@@ -456,6 +472,7 @@ export default function BacktestingApp() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black p-4">
+            {/* Header with Title and Theme Toggle */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-200 text-center w-full">
                     QuantWise | Smarter Trades Through Data-Driven Backtesting
@@ -474,14 +491,19 @@ export default function BacktestingApp() {
                     <span className="sr-only">Toggle theme</span>
                 </Button>
             </div>
+
+            {/* Main Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Section: Backtest Parameters and Results */}
                 <div className="lg:col-span-2 space-y-2">
+                    {/* Backtest Parameters Card */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Backtest Parameters</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <form className="space-y-4">
+                                {/* Ticker and Initial Cash Inputs */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col space-y-1">
                                         <Label htmlFor="ticker">Ticker</Label>
@@ -513,6 +535,8 @@ export default function BacktestingApp() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Start and End Date Inputs */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col space-y-1">
                                         <Label htmlFor="start_date">Start Date</Label>
@@ -543,13 +567,15 @@ export default function BacktestingApp() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Commission and Fixed Cash Position Size Inputs */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col space-y-1">
                                         <Label htmlFor="commission">Commission</Label>
                                         <Input
                                             id="commission"
                                             type="number"
-                                            step="500"
+                                            step="0.001"
                                             value={backtestParams.commission}
                                             onChange={(e) =>
                                                 setBacktestParams((prev) => ({
@@ -561,30 +587,37 @@ export default function BacktestingApp() {
                                         />
                                     </div>
                                     <div className="flex flex-col space-y-1">
-                                        <Label htmlFor="fixed_cash_per_trade">Fixed Cash Position Size (leave at 0 to use all cash for each trade)</Label>
+                                        <Label htmlFor="fixed_cash_per_trade">Fixed Cash Position Size</Label>
                                         <Input
                                             id="fixed_cash_per_trade"
                                             type="number"
                                             value={backtestParams.params.fixed_cash_per_trade}
                                             onChange={(e) =>
-                                              setBacktestParams((prev) => ({
-                                                  ...prev,
-                                                  params: {
-                                                      ...prev.params,
-                                                      fixed_cash_per_trade: parseFloat(e.target.value) || 0,
-                                                  },
-                                              }))
+                                                setBacktestParams((prev) => ({
+                                                    ...prev,
+                                                    params: {
+                                                        ...prev.params,
+                                                        fixed_cash_per_trade: parseFloat(e.target.value) || 0,
+                                                    },
+                                                }))
                                             }
-                                            placeholder="e.g., Leave blank to use all cash or set a fixed amount"
+                                            placeholder="e.g., 0 to use all cash or set a fixed amount"
                                         />
+                                        <small className="text-gray-500 dark:text-gray-400">
+                                            Leave at 0 to use all cash for each trade
+                                        </small>
                                     </div>
                                 </div>
                             </form>
                         </CardContent>
                     </Card>
+
+                    {/* Chart and Backtest Statistics */}
                     <div className="lg:col-span-2 space-y-6">
+                        {/* Price Chart Card */}
                         <Card>
                             <CardHeader>
+                                <CardTitle>Price Chart</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div
@@ -597,6 +630,8 @@ export default function BacktestingApp() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Backtesting Statistics Card */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Backtesting Statistics</CardTitle>
@@ -614,7 +649,7 @@ export default function BacktestingApp() {
                                         <p className="text-2xl font-bold">
                                             {isNaN(backtestResults.win_rate)
                                                 ? 'N/A'
-                                                : `${parseFloat(backtestResults.win_rate.toString()).toFixed(2)}%`}
+                                                : `${backtestResults.win_rate.toFixed(2)}%`}
                                         </p>
                                     </div>
                                     <div className="text-center">
@@ -644,6 +679,8 @@ export default function BacktestingApp() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Total Return Card */}
                         <Card className="mt-4">
                             <CardHeader>
                                 <CardTitle>Total Return</CardTitle>
@@ -661,6 +698,7 @@ export default function BacktestingApp() {
                     </div>
                 </div>
 
+                {/* Right Section: Conditions Configuration */}
                 <div className="lg:col-span-1">
                     <Card>
                         <CardHeader>
@@ -668,6 +706,7 @@ export default function BacktestingApp() {
                         </CardHeader>
                         <CardContent>
                             <form className="space-y-4">
+                                {/* Entry Conditions */}
                                 <div className="space-y-2">
                                     <Label>Entry Conditions</Label>
                                     {backtestParams.params.conditions.map((condition, index) =>
@@ -682,6 +721,8 @@ export default function BacktestingApp() {
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Entry Condition
                                     </Button>
                                 </div>
+
+                                {/* Exit Conditions */}
                                 <div className="space-y-2">
                                     <Label>Exit Conditions</Label>
                                     {backtestParams.params.exits.map((exit, index) =>
@@ -696,9 +737,13 @@ export default function BacktestingApp() {
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Exit Condition
                                     </Button>
                                 </div>
+
+                                {/* Run Backtest Button */}
                                 <Button type="button" className="w-full" onClick={handleBacktest} disabled={loading}>
                                     {loading ? 'Running Backtest...' : 'Run Backtest'}
                                 </Button>
+
+                                {/* Error Message */}
                                 {error && <p className="text-red-500 text-center">{error}</p>}
                             </form>
                         </CardContent>
