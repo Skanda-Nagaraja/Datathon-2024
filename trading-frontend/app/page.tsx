@@ -150,6 +150,7 @@ export default function BacktestingApp() {
                     if (!priceResponse.ok) {
                         const errorData = await priceResponse.json()
                         throw new Error(errorData.error || 'Error fetching price data')
+                        console.log('Error fetching price data:', errorData)
                     }
 
                     const priceData: PriceDataItem[] = await priceResponse.json()
@@ -157,6 +158,7 @@ export default function BacktestingApp() {
 
                     if (priceData.length === 0) {
                         throw new Error('No price data available for the selected ticker and date range.')
+                        console.log('No price data available for the selected ticker and date range.')
                     }
 
                     const formattedPriceData = priceData.map((item: PriceDataItem) => ({
@@ -213,12 +215,14 @@ export default function BacktestingApp() {
                             const dateString = item.Date || item.date
                             if (!dateString) {
                                 console.error("Error: Missing date in indicator data", item)
+                                console.log("Error: Missing date in indicator data", item)
                                 return null
                             }
 
                             const dateObj = new Date(dateString)
                             if (isNaN(dateObj.getTime())) {
                                 console.error("Error: Invalid date in indicator data", item)
+                                console.log("Error: Invalid date in indicator data", item)
                                 return null
                             }
 
@@ -625,9 +629,10 @@ export default function BacktestingApp() {
                                     id="tradingview_chart"
                                     className="w-full h-[600px]"
                                 ></div>
-                                {fetchError && (
+                                {/* {fetchError && (
+                                    
                                     <p className="text-red-500 text-center mt-2">{fetchError}</p>
-                                )}
+                                )} */}
                             </CardContent>
                         </Card>
 
@@ -744,7 +749,7 @@ export default function BacktestingApp() {
                                 </Button>
 
                                 {/* Error Message */}
-                                {error && <p className="text-red-500 text-center">{error}</p>}
+                                {/* {error && <p className="text-red-500 text-center">{error}</p>} */}
                             </form>
                         </CardContent>
                     </Card>
