@@ -105,8 +105,7 @@ export default function BacktestingApp() {
     })
 
     const chartContainerRef = useRef<HTMLDivElement | null>(null)
-    // Removed fetchError state
-    // Removed error state
+    const [fetchError, setFetchError] = useState<string | null>(null)
     const { theme, setTheme } = useTheme()
 
     // Retrieve Backend API URL from Environment Variables
@@ -259,7 +258,7 @@ export default function BacktestingApp() {
                     chart.timeScale().fitContent()
                 } catch (error) {
                     console.error('Error fetching or rendering price data:', error)
-                    // Removed setFetchError to prevent UI display
+                    setFetchError((error as Error).message || 'Error fetching price data')
                 }
             } else {
                 console.log('Chart container or backtest parameters not set.')
@@ -322,20 +321,19 @@ export default function BacktestingApp() {
         }))
     }
 
-    // Loading State
+    // Loading and Error States
     const [loading, setLoading] = useState(false)
-    // Removed error state
+    const [error, setError] = useState<string | null>(null)
 
     // Function to Handle Backtest Execution
     const handleBacktest = async () => {
         console.log('Backtest parameters:', backtestParams)
         setLoading(true)
-        // Removed setError(null)
+        setError(null)
 
         // Input Validation
         if (!backtestParams.ticker || !backtestParams.start_date || !backtestParams.end_date) {
-            console.error('Validation Error: Please enter the ticker, start date, and end date.')
-            // Removed setError to prevent UI display
+            setError('Please enter the ticker, start date, and end date.')
             setLoading(false)
             return
         }
@@ -344,8 +342,7 @@ export default function BacktestingApp() {
             backtestParams.params.conditions.length === 0 ||
             backtestParams.params.exits.length === 0
         ) {
-            console.error('Validation Error: Please add at least one entry and one exit condition.')
-            // Removed setError to prevent UI display
+            setError('Please add at least one entry and one exit condition.')
             setLoading(false)
             return
         }
@@ -370,10 +367,10 @@ export default function BacktestingApp() {
             const data = await response.json()
             console.log('Backtest results:', data)
             setBacktestResults(data)
-            // Removed setFetchError(null)
+            setFetchError(null)
         } catch (err) {
             console.error('Error running backtest:', err)
-            // Removed setError to prevent UI display
+            setError((err as Error).message)
         } finally {
             setLoading(false)
         }
@@ -628,7 +625,9 @@ export default function BacktestingApp() {
                                     id="tradingview_chart"
                                     className="w-full h-[600px]"
                                 ></div>
-                                {/* Removed fetchError display */}
+                                {/* {fetchError && (
+                                    <p className="text-red-500 text-center mt-2">{fetchError}</p>
+                                )} */}
                             </CardContent>
                         </Card>
 
@@ -698,58 +697,58 @@ export default function BacktestingApp() {
                         </Card>
                     </div>
                 </div>
-            </div>
 
-            {/* Removed error message display in Conditions Configuration */}
-            {/* Conditions Configuration Card */}
-            <div className="lg:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Conditions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form className="space-y-4">
-                            {/* Entry Conditions */}
-                            <div className="space-y-2">
-                                <Label>Entry Conditions</Label>
-                                {backtestParams.params.conditions.map((condition, index) =>
-                                    renderConditionInputs(condition, index, false)
-                                )}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={() => addCondition(false)}
-                                >
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Entry Condition
+                {/* Right Section: Conditions Configuration */}
+                <div className="lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Conditions</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form className="space-y-4">
+                                {/* Entry Conditions */}
+                                <div className="space-y-2">
+                                    <Label>Entry Conditions</Label>
+                                    {backtestParams.params.conditions.map((condition, index) =>
+                                        renderConditionInputs(condition, index, false)
+                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => addCondition(false)}
+                                    >
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Entry Condition
+                                    </Button>
+                                </div>
+
+                                {/* Exit Conditions */}
+                                <div className="space-y-2">
+                                    <Label>Exit Conditions</Label>
+                                    {backtestParams.params.exits.map((exit, index) =>
+                                        renderConditionInputs(exit, index, true)
+                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => addCondition(true)}
+                                    >
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Exit Condition
+                                    </Button>
+                                </div>
+
+                                {/* Run Backtest Button */}
+                                <Button type="button" className="w-full" onClick={handleBacktest} disabled={loading}>
+                                    {loading ? 'Running Backtest...' : 'Run Backtest'}
                                 </Button>
-                            </div>
 
-                            {/* Exit Conditions */}
-                            <div className="space-y-2">
-                                <Label>Exit Conditions</Label>
-                                {backtestParams.params.exits.map((exit, index) =>
-                                    renderConditionInputs(exit, index, true)
-                                )}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={() => addCondition(true)}
-                                >
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Exit Condition
-                                </Button>
-                            </div>
-
-                            {/* Run Backtest Button */}
-                            <Button type="button" className="w-full" onClick={handleBacktest} disabled={loading}>
-                                {loading ? 'Running Backtest...' : 'Run Backtest'}
-                            </Button>
-
-                            {/* Removed error message display */}
-                        </form>
-                    </CardContent>
-                </Card>
+                                {/* Error Message */}
+                                {/* {error && <p className="text-red-500 text-center">{error}</p>} */}
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </div>
     )
