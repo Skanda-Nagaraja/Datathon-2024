@@ -258,7 +258,7 @@ export default function BacktestingApp() {
                     chart.timeScale().fitContent()
                 } catch (error) {
                     console.error('Error fetching or rendering price data:', error)
-                    setFetchError((error as Error).message || 'Error fetching price data')
+                    // setFetchError((error as Error).message || 'Error fetching price data')
                 }
             } else {
                 console.log('Chart container or backtest parameters not set.')
@@ -367,7 +367,7 @@ export default function BacktestingApp() {
             const data = await response.json()
             console.log('Backtest results:', data)
             setBacktestResults(data)
-            setFetchError(null)
+            //setFetchError(null)
         } catch (err) {
             console.error('Error running backtest:', err)
             setError((err as Error).message)
