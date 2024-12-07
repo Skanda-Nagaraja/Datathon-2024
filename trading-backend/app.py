@@ -16,8 +16,8 @@ load_dotenv()
 app = Flask(__name__)
 allowed_origins = [
     "https://datathon-2024-bice.vercel.app",
-    "https://your-nextjs-frontend.onrender.com",  # Replace with your actual frontend URL after deployment
-    "http://localhost:3000",  # Add your local frontend URL if testing locally
+    "https://nextjs-frontend-5cjm.onrender.com/",  
+    "http://localhost:3000", 
     "http://127.0.0.1:3000"
 ]
 
